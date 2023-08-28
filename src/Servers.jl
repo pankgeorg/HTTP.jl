@@ -36,10 +36,21 @@ end
 
 supportsreuseaddr() = ccall(:jl_has_so_reuseport, Int32, ()) == 1
 
+"Follow linux's net.core.somaxconn instead of the 511 default"
+defaultbacklog() =  try
+    if Sys.islinux()
+        parse(Int, split(readchomp(`sysctl net.core.somaxconn`), " = ")[2]) - 1
+    else
+        Sockets.BACKLOG_DEFAULT
+    end
+catch
+    Sockets.BACKLOG_DEFAULT
+end
+
 function Listener(addr::Sockets.InetAddr, host::String, port::String;
     sslconfig::Union{MbedTLS.SSLConfig, Nothing}=nothing,
     reuseaddr::Bool=false,
-    backlog::Integer=Sockets.BACKLOG_DEFAULT,
+    backlog::Integer=defaultbacklog(),
     server::Union{Nothing, Base.IOServer}=nothing, # for backwards compat
     listenany::Bool=false,
     kw...)
